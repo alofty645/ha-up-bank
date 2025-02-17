@@ -1,5 +1,5 @@
 import logging
-from datetime import timedelta
+from datetime import timedelta, datetime
 import async_timeout
 from homeassistant.components.number import (
     NumberEntity,
@@ -62,8 +62,12 @@ class UpCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         try:
-            return await self.get_data()
+            data = await self.get_data()
+            self.last_update_success = datetime.now()
+            _LOGGER.info("Data updated successfully")
+            return data
         except Exception as err:
+            _LOGGER.error(f"Error updating data: {err}")
             raise UpdateFailed(f"Error communicating with API: {err}")
         
     async def get_data(self):
@@ -147,6 +151,12 @@ class Account(CoordinatorEntity, NumberEntity):
     def native_step(self):
         return 0.01
 
+    @property
+    def extra_state_attributes(self):
+        return {
+            "last_updated": self.coordinator.last_update_success.isoformat() if self.coordinator.last_update_success else None
+        }
+
     
 class TotalSavings(CoordinatorEntity, NumberEntity):
     account = {}
@@ -197,3 +207,9 @@ class TotalSavings(CoordinatorEntity, NumberEntity):
     @property
     def native_step(self):
         return 0.01
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "last_updated": self.coordinator.last_update_success.isoformat() if self.coordinator.last_update_success else None
+        }
