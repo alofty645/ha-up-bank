@@ -49,15 +49,13 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     async_add_entities(entities)
 
 class UpCoordinator(DataUpdateCoordinator):
-
     def __init__(self, hass, api):
         super().__init__(
             hass,
             _LOGGER,
             name="UP Coordinator",
-            update_interval = timedelta(hours=1)
+            update_interval=timedelta(hours=1)
         )
-
         self.api = api
 
     async def _async_update_data(self):
@@ -69,10 +67,11 @@ class UpCoordinator(DataUpdateCoordinator):
         except Exception as err:
             _LOGGER.error(f"Error updating data: {err}")
             raise UpdateFailed(f"Error communicating with API: {err}")
-        
+
     async def get_data(self):
         data = {}
         data['accounts'] = await self.api.getAccounts()
+        data['transactions'] = await self.api.getTransactions()
         joint = 0
         joint_id = ''
         individual = 0
@@ -100,7 +99,7 @@ class UpCoordinator(DataUpdateCoordinator):
                 'id': individual_id
             }
         }
-        return data;
+        return data
     
 
 class Account(CoordinatorEntity, NumberEntity):
@@ -153,9 +152,20 @@ class Account(CoordinatorEntity, NumberEntity):
 
     @property
     def extra_state_attributes(self):
-        return {
+        attributes = {
             "last_updated": self.coordinator.last_update_success.isoformat() if self.coordinator.last_update_success else None
         }
+        if self.id in self.coordinator.data['transactions']:
+            transactions = self.coordinator.data['transactions'][self.id][:5]
+            for i, t in enumerate(transactions):
+                attributes.update({
+                    f"transaction_{i+1}_amount": t['amount'],
+                    f"transaction_{i+1}_description": t['description'],
+                    f"transaction_{i+1}_who": t['who'],
+                    f"transaction_{i+1}_datetime": t['datetime'],
+                    f"transaction_{i+1}_status": t['status']
+                })
+        return attributes
 
     
 class TotalSavings(CoordinatorEntity, NumberEntity):
